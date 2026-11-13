@@ -19,6 +19,7 @@ All three are pure functions of `(key, buckets)` — no state, no RNG, no clock.
 ```bash
 python -m venv .venv && . .venv/bin/activate
 pip install -e .
+pip install pytest   # only needed to run the test suite
 ```
 
 No runtime dependencies, Python 3.9+.
