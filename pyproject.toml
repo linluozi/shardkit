@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "shardkit"
-version = "0.1.0"
-description = "Jump consistent hash and weighted rendezvous hashing with auditable placement"
+version = "0.2.0"
+description = "Consistent hashing with auditable bounded-load and failure-domain-aware placement"
 readme = "README.md"
 requires-python = ">=3.9"
 license = {text = "MIT"}

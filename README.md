@@ -1,25 +1,28 @@
 # shardkit
 
-Deterministic consistent hashing with auditable placement: jump consistent hash (O(log n), O(1) memory) and weighted rendezvous hashing (O(n), arbitrary weights), plus an `audit` command that measures balance and key movement instead of asserting them.
+Deterministic consistent hashing with auditable placement: jump consistent hash (O(log n), O(1) memory), weighted rendezvous hashing, and **bounded-load / failure-domain-aware placement** whose capacity cap is recomputed by an independent audit instead of asserted.
 
 Upstream: none (original library).
 
 ## What you get
 
-| function | cost | weights | when to use |
-| --- | --- | --- | --- |
-| `jump_hash(int_key, buckets)` | **1,129 ns/lookup**, O(log n) | no | fixed-size key space, minimal memory, fastest placement |
-| `rendezvous(key, buckets)` | **13,922 ns/lookup**, O(n) | no | arbitrary keys, stateless, easy to reason about |
-| `weighted_rendezvous(key, weights)` | O(n) | yes | heterogeneous bucket capacity |
+| function | cost (measured below) | guarantee |
+| --- | --- | --- |
+| `jump_hash(int_key, buckets)` | **1,164 ns/lookup** | O(log n), O(1) memory |
+| `rendezvous(key, buckets)` | **14,573 ns/lookup** | stateless, uniform in expectation |
+| `weighted_rendezvous(key, weights)` | O(buckets) | keys follow weights |
+| `bounded_assign(keys, buckets, overload)` | **14,424 ns/key** | **max load <= ceil(overload * n / m)**, proven and re-audited |
+| `replicated_assign(keys, m, replicas, domains)` | **15,627 ns/key** (3 replicas) | replicas on distinct domains, cap reported even when missed |
+| `repair_failure(keys, placements, m, failed)` | **172 ms / 12,500 displaced keys** | moves only forced keys, refills to the new cap |
 
-All three are pure functions of `(key, buckets)` — no state, no RNG, no clock. `audit(keys, buckets)` returns counts, `chi2`, and `max/mean` so a distribution claim can be checked rather than believed.
+`audit_placement()` and `audit_replicas()` recompute loads and separation from the placements alone, so a distribution or safety claim can be checked rather than believed.
 
 ## Install
 
 ```bash
 python -m venv .venv && . .venv/bin/activate
 pip install -e .
-pip install pytest   # only needed to run the test suite
+pip install pytest   # only needed for the test suite
 ```
 
 No runtime dependencies, Python 3.9+.
@@ -27,70 +30,85 @@ No runtime dependencies, Python 3.9+.
 ## Use
 
 ```python
-from shardkit import jump_hash, rendezvous, weighted_rendezvous, audit
+from shardkit import bounded_assign, replicated_assign, repair_failure, audit_placement
 
-jump_hash(12345, 8)                  # -> bucket in [0, 8)
-rendezvous("user:42", 8)             # -> bucket in [0, 8)
-weighted_rendezvous("user:42", [1, 1, 4])   # bucket 2 gets ~4x the keys
-audit([f"u{i}" for i in range(200_000)], 8)["max_over_mean"]
+report = bounded_assign([f"u{i}" for i in range(100_000)], 8, overload=1.0)
+report["capacity"], report["max_load"], report["bound_holds"]   # 12500, 12500, True
+audit_placement(report["placements"], 8, report["capacity"])["bound_holds"]  # True
+
+zones = [f"zone-{b % 4}" for b in range(8)]
+rep = replicated_assign([f"u{i}" for i in range(100_000)], 8, 3, zones, overload=1.1)
+rep["violations"], rep["max_load"]        # 0, 37774 (cap 41250)
+
+after = repair_failure(keys, report["placements"], 8, {3})
+after["moved"], after["max_load"]         # 12500, 14286
 ```
 
 CLI:
 
 ```bash
-python -m shardkit audit --keys 200000 --buckets 8
+python -m shardkit audit    --keys 200000 --buckets 8
+python -m shardkit bounded  --keys 100000 --buckets 8 --overload 1.0
+python -m shardkit replicas --keys 100000 --buckets 8 --replicas 3 --domains 4 --overload 1.1
 ```
 
-## Measured properties (200,000 keys, 8 buckets)
+## Why the cap is arithmetic, not statistical
 
-From `bench/bench.py`, output in `bench/results.json`, CPython 3.12.3:
+For `n` keys, `m` buckets and `overload >= 1.0`, capacity is `ceil(overload * n / m)`. Each key walks its rendezvous preference order and takes the first bucket below capacity; if none has room it falls back to the least loaded one in that order. The fallback cannot break the cap: before the last assignment at most `n-1` slots are taken, so the least loaded bucket has load `<= floor((n-1)/m) < ceil(n/m) <= capacity`. This is a pigeonhole argument, not a distribution assumption — it holds for uniform keys, hot-key skew, and duplicate keys alike. `audit_placement()` re-derives the loads and the inequality from the placement list.
 
-| metric | value |
+## Measured properties (`bench/bounded.py`, output in `bench/bounded.json`)
+
+100,000 deterministic keys (`user:0 … user:99999`), 8 buckets, CPython 3.12.3, median of 3 runs (2 for the failure cases):
+
+| scenario | result |
 | --- | --- |
-| jump hash | **1,129 ns/lookup** |
-| rendezvous (BLAKE2b, 8 buckets) | **13,922 ns/lookup** (12.3x jump) |
-| bucket counts | min 24,813 / max 25,346 / mean 25,000 |
-| max / mean | **1.0138** |
-| chi-square (dof 7) | **10.25** |
-| keys moved when growing 8 → 9 buckets | **11,055 / 100,000 = 11.05 %** (ideal 11.11 %) |
+| `bounded_assign`, overload 1.0 | max load **12,500 = capacity**; **all 8 buckets exactly full**; 14,424 ns/key; mean probe **1.01** |
+| `bounded_assign`, overload 1.25 | max 12,634 <= 15,625; 14,308 ns/key; mean probe 1.00 |
+| plain `rendezvous`, same keys | max/mean **1.0107** (no cap) |
+| hot-key skew: 200 distinct keys, 100k lookups | plain rendezvous max/mean **1.44x**; bounded max **12,500 = cap**, mean probe 1.15 |
+| 3 replicas, 4 zones, overload 1.0 | **36 / 300,000 placements over cap** (max 37,509 vs 37,500) — reported, not hidden |
+| 3 replicas, 4 zones, overload 1.10 | 0 violations, 0 domain collisions, max 37,774 (cap 41,250) |
+| 1 of 8 buckets fails, naive full rebalance | **60,729 keys move (60.7 %)** vs 12,500 forced; 1,283 ms |
+| 1 of 8 buckets fails, `repair_failure` | **12,500 keys move (12.5 % = the lower bound)**, 0 extra; max 14,286 = new cap; 172 ms |
 
-Timings on this shared 4-vCPU box vary by several percent between runs (`bench/variance.json` records 8 consecutive runs of the same command; the movement fraction is 0.1105 in every one). The table above is one such run.
+Two results here are deliberately unflattering and are part of the delivery: (1) domain-constrained replicas at overload 1.0 miss the cap by 36 placements out of 300,000, so the tight setting is not usable with zone constraints; overload 1.1 fixes it, and 1.25 buys nothing extra (identical placement, max 37,774). (2) A full rebalance after one failure moves 60,729 keys where 12,500 suffice — the targeted repair exists because the naive number was measured, and it reaches the lower bound while still filling the new capacity exactly (14,284–14,286 per survivor).
 
-The last row is the property people usually assume without checking: adding one bucket moves ~1/(n+1) of keys, and 11.05 % is within 0.06 pp of the ideal. The chi-square of 10.25 with 7 degrees of freedom is well inside the 95 % band (14.07), so the placement is not detectably skewed at this sample size.
+Timings on this shared 4-vCPU box vary by several percent between runs; each row is the median recorded in `bench/bounded.json`, which also stores every sample. The movement counts and loads are exact and reproducible, not statistical.
 
 ## Tests
 
 ```bash
 python -m pytest tests -q
-# 11 passed
+# 29 passed
 ```
 
-Covered: range/determinism for 4 bucket counts, single-bucket identity, balance bounds, measured 8→9 disruption, rendezvous determinism and salting, key-type normalization, weight proportionality (4x weight within 3.2–4.8x), score monotonicity, audit report shape/balance, invalid inputs, and the CLI in a subprocess.
+Covered: the original 11 tests for jump/rendezvous/weights/audit/CLI, plus 18 new ones: bound at overload 1.0 and 1.25, empty batch, single bucket, more buckets than keys (forces distinct placement), determinism and salting, probe-histogram consistency, argument validation, independent audit detecting an injected violation, replica separation and capacity, the "violations are reported" invariant at tight capacity, impossible domain counts, minimal-movement repair for one and two failures, repair validation, and both new CLI subcommands.
 
 ## Limits
 
-- `jump_hash` takes a 64-bit integer key only; hash strings first if you need them.
-- `rendezvous` is O(buckets) per lookup with a BLAKE2b digest per bucket — fine for tens of buckets, not for thousands.
-- No bounded-load variant and no replication/failure-domain awareness; this library is placement only.
-- Benchmarks are single-process, single-threaded, on the machine below.
+- Placement needs the whole batch: `capacity` depends on `n`. Online insertion needs a rebalance or a higher overload, which this library does not schedule for you.
+- `rendezvous` and both placement functions hash every bucket per key (BLAKE2b), so they are O(buckets); for thousands of buckets use `jump_hash`.
+- Duplicate keys are treated as independent items; pass unique identifiers if you expect one placement per entity.
+- `replicated_assign` needs at least as many distinct domains as replicas; it raises instead of silently co-locating replicas.
+- The bounded path has no per-bucket weights (weighted rendezvous is separate).
 
 ## Reproduce
 
 ```bash
 python -m pytest tests -q
-python bench/bench.py
-python -m shardkit audit --keys 200000 --buckets 8
+python bench/bounded.py
+python -m shardkit bounded --keys 100000 --buckets 8 --overload 1.0
 ```
 
 ## Environment
 
 - CPU: AMD EPYC 7K62 (4 vCPU), RAM 3,723 MB
 - CPython **3.12.3** (`/usr/bin/python3.12`), pytest 9.2.0
-- Seed: none — the algorithms are deterministic; the 200k keys are `user:0 … user:199999`
+- Seed: none — keys are `user:0 … user:99999`, so every placement is reproducible bit for bit
 
 ## 本轮创新
 
-把两种一致哈希的**代价与迁移边界**放在同一 key 空间上实测并做成可复算的 `audit`：jump 1,129 ns vs rendezvous 13,922 ns（12.3x），8→9 桶迁移 11.05% 对理论 11.11%，chi2 10.25/dof 7 未检出偏斜。与台账里“证书/审计”类仓库不同，这里交付的是可复用库本身，结论是测量出来的而不是引用的。
+把「容量上界的代价」本身做成测量对象，而不是只宣布一个上界。与 Google 2017 的 bounded-load 环不同，这里用 **rendezvous 偏好序 + 批量容量 + 最小负载回退**，给出可被 `audit_placement()` 独立重算的鸽笼证书；实测推翻了「有界负载必然明显增加探测」的默认假设——overload 1.0 时 100k 键的均探测深度是 **1.01**，因为自然 rendezvous 分布只把约 466 个键挤出首选桶。同时给出两条反面证据并交付修复：域约束副本在 overload 1.0 时差 36/300,000 个放置（需 1.1），以及故障后全量重平衡移动 60.7% 而强制下界只有 12.5%——`repair_failure` 恰好达到下界且仍把 7 个存活桶填到 14,284–14,286。这三组数字都在 `bench/bounded.json` 里，可复算。
 
 ## License
 

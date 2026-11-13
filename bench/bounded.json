@@ -1,0 +1,195 @@
+{
+  "python": "3.12.3",
+  "machine": "x86_64",
+  "keys": 100000,
+  "buckets": 8,
+  "repeats": 3,
+  "seed": "none (keys are user:0 .. user:99999)",
+  "bounded_c100": {
+    "seconds": [
+      1.4452,
+      1.4424,
+      1.4378
+    ],
+    "median_seconds": 1.4424,
+    "ns_per_key": 14423.8,
+    "min": 1.4378,
+    "max": 1.4452,
+    "capacity": 12500,
+    "max_load": 12500,
+    "bound_holds": true,
+    "all_buckets_exactly_full": true,
+    "loads": [
+      12500,
+      12500,
+      12500,
+      12500,
+      12500,
+      12500,
+      12500,
+      12500
+    ],
+    "mean_probe": 1.01,
+    "histogram": {
+      "1": 99534,
+      "2": 231,
+      "3": 112,
+      "4": 56,
+      "5": 26,
+      "6": 25,
+      "7": 10,
+      "8": 6
+    },
+    "fallbacks": 0,
+    "plain_rendezvous_max_over_mean": 1.0107
+  },
+  "bounded_c125": {
+    "seconds": [
+      1.4308,
+      1.4281,
+      1.4326
+    ],
+    "median_seconds": 1.4308,
+    "ns_per_key": 14307.9,
+    "min": 1.4281,
+    "max": 1.4326,
+    "capacity": 15625,
+    "max_load": 12634,
+    "bound_holds": true,
+    "loads": [
+      12365,
+      12471,
+      12576,
+      12565,
+      12319,
+      12482,
+      12634,
+      12588
+    ],
+    "mean_probe": 1.0
+  },
+  "jump_hash": {
+    "seconds": [
+      0.1136,
+      0.1133,
+      0.1131
+    ],
+    "median_seconds": 0.1133,
+    "ns_per_key": 1133.0,
+    "min": 0.1131,
+    "max": 0.1136
+  },
+  "rendezvous": {
+    "seconds": [
+      1.38,
+      1.3907,
+      1.3818
+    ],
+    "median_seconds": 1.3818,
+    "ns_per_key": 13817.8,
+    "min": 1.38,
+    "max": 1.3907
+  },
+  "skew_200_hot_keys": {
+    "plain_max_over_mean": 1.44,
+    "bounded_max_load": 12500,
+    "bounded_capacity": 12500,
+    "bounded_bound_holds": true,
+    "bounded_mean_probe": 1.15,
+    "plain_loads": [
+      11000,
+      10000,
+      18000,
+      11000,
+      11000,
+      11500,
+      17000,
+      10500
+    ]
+  },
+  "replication": {
+    "replicas": 3,
+    "domains": 4,
+    "overloads": {
+      "1.0": {
+        "median_seconds": 1.5627,
+        "ns_per_key": 15627.3,
+        "capacity": 37500,
+        "max_load": 37509,
+        "bound_holds": false,
+        "violations": 36,
+        "unplaced": 0,
+        "duplicate_bucket": 0,
+        "duplicate_domain": 0
+      },
+      "1.1": {
+        "median_seconds": 1.5687,
+        "ns_per_key": 15686.9,
+        "capacity": 41250,
+        "max_load": 37774,
+        "bound_holds": true,
+        "violations": 0,
+        "unplaced": 0,
+        "duplicate_bucket": 0,
+        "duplicate_domain": 0
+      },
+      "1.25": {
+        "median_seconds": 1.5655,
+        "ns_per_key": 15655.3,
+        "capacity": 46875,
+        "max_load": 37774,
+        "bound_holds": true,
+        "violations": 0,
+        "unplaced": 0,
+        "duplicate_bucket": 0,
+        "duplicate_domain": 0
+      }
+    }
+  },
+  "failure_of_bucket_3": {
+    "keys": 100000,
+    "failed_load": 12500,
+    "forced": 12500,
+    "forced_fraction": 0.125,
+    "loads_before": [
+      12500,
+      12500,
+      12500,
+      12500,
+      12500,
+      12500,
+      12500,
+      12500
+    ],
+    "naive_rebalance": {
+      "median_seconds": 1.283,
+      "moved": 60729,
+      "moved_fraction": 0.60729,
+      "extra": 48229,
+      "capacity_after": 14286,
+      "max_load_after": 14286,
+      "bound_holds_after": true
+    },
+    "targeted_repair": {
+      "median_seconds": 0.1725,
+      "moved": 12500,
+      "moved_fraction": 0.125,
+      "extra": 0,
+      "capacity_after": 14286,
+      "max_load_after": 14286,
+      "bound_holds_after": true,
+      "mean_probe": 1.865,
+      "fallbacks": 0,
+      "loads_after": [
+        14284,
+        14286,
+        14286,
+        0,
+        14286,
+        14286,
+        14286,
+        14286
+      ]
+    }
+  }
+}
