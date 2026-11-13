@@ -9,6 +9,7 @@ from .placement import (
     rebalance,
     repair_failure,
     replicated_assign,
+    weighted_bounded_assign,
 )
 
 __all__ = [
@@ -23,6 +24,7 @@ __all__ = [
     "repair_failure",
     "replicated_assign",
     "score",
+    "weighted_bounded_assign",
     "weighted_rendezvous",
 ]
 __version__ = "0.2.0"

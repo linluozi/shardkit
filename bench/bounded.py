@@ -23,6 +23,7 @@ from shardkit import (
     rebalance,
     repair_failure,
     replicated_assign,
+    weighted_bounded_assign,
 )
 
 N = 100_000
@@ -106,6 +107,19 @@ def main() -> None:
             "mean_probe": round(report["mean_probe"], 3),
             "histogram": report["histogram"],
         }
+
+    weighted = weighted_bounded_assign(KEYS, [1.0, 1.0, 4.0], 1.0)
+    samples, weighted = timed(
+        lambda: weighted_bounded_assign(KEYS, [1.0, 1.0, 4.0], 1.0)
+    )
+    out["weighted_bounded_1_1_4"] = {
+        **summary(samples, N),
+        "buckets": 3,
+        "capacities": weighted["capacities"],
+        "loads": weighted["loads"],
+        "bound_holds": weighted["bound_holds"],
+        "mean_probe": round(weighted["mean_probe"], 3),
+    }
 
     # --- cost floor: the plain primitives on the same key space ------------
     samples, _ = timed(lambda: [jump_hash(i, BUCKETS) for i in range(N)])

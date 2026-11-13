@@ -7,14 +7,14 @@
   "seed": "none (keys are user:0 .. user:99999)",
   "bounded_c100": {
     "seconds": [
-      1.4506,
-      1.4347,
-      1.4426
+      1.4432,
+      1.4471,
+      1.4465
     ],
-    "median_seconds": 1.4426,
-    "ns_per_key": 14425.6,
-    "min": 1.4347,
-    "max": 1.4506,
+    "median_seconds": 1.4465,
+    "ns_per_key": 14464.7,
+    "min": 1.4432,
+    "max": 1.4471,
     "capacity": 12500,
     "max_load": 12500,
     "bound_holds": true,
@@ -45,14 +45,14 @@
   },
   "bounded_c125": {
     "seconds": [
-      1.4357,
-      1.4382,
-      1.4212
+      1.4414,
+      1.447,
+      1.4449
     ],
-    "median_seconds": 1.4357,
-    "ns_per_key": 14357.1,
-    "min": 1.4212,
-    "max": 1.4382,
+    "median_seconds": 1.4449,
+    "ns_per_key": 14449.0,
+    "min": 1.4414,
+    "max": 1.447,
     "capacity": 15625,
     "max_load": 12634,
     "bound_holds": true,
@@ -70,14 +70,14 @@
   },
   "stream_c100": {
     "seconds": [
-      1.4992,
-      1.4983,
-      1.501
+      1.5077,
+      1.5084,
+      1.4986
     ],
-    "median_seconds": 1.4992,
-    "ns_per_key": 14991.6,
-    "min": 1.4983,
-    "max": 1.501,
+    "median_seconds": 1.5077,
+    "ns_per_key": 15076.9,
+    "min": 1.4986,
+    "max": 1.5084,
     "capacity": 12500,
     "max_load": 12500,
     "bound_holds": true,
@@ -97,14 +97,14 @@
   },
   "stream_c105": {
     "seconds": [
-      1.5027,
-      1.487,
-      1.4848
+      1.4903,
+      1.4929,
+      1.4944
     ],
-    "median_seconds": 1.487,
-    "ns_per_key": 14870.0,
-    "min": 1.4848,
-    "max": 1.5027,
+    "median_seconds": 1.4929,
+    "ns_per_key": 14928.7,
+    "min": 1.4903,
+    "max": 1.4944,
     "capacity": 13125,
     "max_load": 12648,
     "bound_holds": true,
@@ -120,27 +120,51 @@
       "6": 2
     }
   },
+  "weighted_bounded_1_1_4": {
+    "seconds": [
+      0.5991,
+      0.5975,
+      0.5929
+    ],
+    "median_seconds": 0.5975,
+    "ns_per_key": 5975.1,
+    "min": 0.5929,
+    "max": 0.5991,
+    "buckets": 3,
+    "capacities": [
+      16667,
+      16667,
+      66667
+    ],
+    "loads": [
+      16666,
+      16667,
+      66667
+    ],
+    "bound_holds": true,
+    "mean_probe": 1.005
+  },
   "jump_hash": {
     "seconds": [
-      0.1117,
-      0.1118,
-      0.1114
+      0.1119,
+      0.1116,
+      0.1119
     ],
-    "median_seconds": 0.1117,
-    "ns_per_key": 1117.4,
-    "min": 0.1114,
-    "max": 0.1118
+    "median_seconds": 0.1119,
+    "ns_per_key": 1118.7,
+    "min": 0.1116,
+    "max": 0.1119
   },
   "rendezvous": {
     "seconds": [
-      1.3779,
-      1.3802,
-      1.3889
+      1.374,
+      1.3749,
+      1.3722
     ],
-    "median_seconds": 1.3802,
-    "ns_per_key": 13801.9,
-    "min": 1.3779,
-    "max": 1.3889
+    "median_seconds": 1.374,
+    "ns_per_key": 13739.7,
+    "min": 1.3722,
+    "max": 1.3749
   },
   "skew_200_hot_keys": {
     "plain_max_over_mean": 1.44,
@@ -164,8 +188,8 @@
     "domains": 4,
     "overloads": {
       "1.0": {
-        "median_seconds": 1.5608,
-        "ns_per_key": 15607.8,
+        "median_seconds": 1.5706,
+        "ns_per_key": 15706.2,
         "capacity": 37500,
         "max_load": 37509,
         "bound_holds": false,
@@ -175,8 +199,8 @@
         "duplicate_domain": 0
       },
       "1.1": {
-        "median_seconds": 1.5736,
-        "ns_per_key": 15736.2,
+        "median_seconds": 1.5722,
+        "ns_per_key": 15722.2,
         "capacity": 41250,
         "max_load": 37774,
         "bound_holds": true,
@@ -186,8 +210,8 @@
         "duplicate_domain": 0
       },
       "1.25": {
-        "median_seconds": 1.5673,
-        "ns_per_key": 15672.5,
+        "median_seconds": 1.5693,
+        "ns_per_key": 15692.6,
         "capacity": 46875,
         "max_load": 37774,
         "bound_holds": true,
@@ -225,7 +249,7 @@
       12500
     ],
     "naive_rebalance": {
-      "median_seconds": 1.2822,
+      "median_seconds": 1.2858,
       "moved": 60729,
       "moved_fraction": 0.60729,
       "extra": 48229,
@@ -234,7 +258,7 @@
       "bound_holds_after": true
     },
     "targeted_repair": {
-      "median_seconds": 0.1757,
+      "median_seconds": 0.1766,
       "moved": 12500,
       "moved_fraction": 0.125,
       "extra": 0,

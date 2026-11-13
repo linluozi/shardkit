@@ -31,6 +31,7 @@ __all__ = [
     "repair_failure",
     "audit_placement",
     "audit_replicas",
+    "weighted_bounded_assign",
 ]
 
 
@@ -174,6 +175,81 @@ def bounded_stream(
         "bound_holds": all(load <= capacity for load in loads),
         "prefix_bound_holds": prefix_holds,
         "moved": 0,
+        "fallbacks": fallbacks,
+        "probes": probe_total,
+        "mean_probe": (probe_total / n) if n else 0.0,
+        "histogram": {int(k): v for k, v in sorted(histogram.items())},
+    }
+
+
+def weighted_bounded_assign(
+    keys: list[object],
+    weights: list[float],
+    overload: float = 1.0,
+    salt: bytes = b"",
+) -> dict[str, object]:
+    """Bounded load with per-bucket capacity: ``cap_b = ceil(overload*n*w_b/W)``.
+
+    Buckets are walked in weighted-rendezvous order and capped in proportion to
+    their weight, so a 4x bucket is allowed 4x the keys of a 1x bucket.  The
+    same pigeonhole argument applies per bucket (total capacity >= n), so the
+    fallback to the largest spare capacity cannot break any cap either.
+    """
+    if not weights:
+        raise ValueError("weights must not be empty")
+    buckets = len(weights)
+    _check_buckets(buckets)
+    _check_overload(overload)
+    for weight in weights:
+        if not isinstance(weight, (int, float)) or isinstance(weight, bool):
+            raise TypeError("weights must be numbers")
+        if not math.isfinite(weight) or weight <= 0:
+            raise ValueError("all weights must be finite and > 0")
+
+    keys = list(keys)
+    n = len(keys)
+    total = float(sum(weights))
+    caps = [math.ceil(overload * n * w / total) for w in weights]
+    loads = [0] * buckets
+    placements: list[int] = []
+    histogram: dict[int, int] = {}
+    probe_total = 0
+    fallbacks = 0
+
+    for key in keys:
+        order = sorted(
+            range(buckets), key=lambda b: score(key, b, weights[b], salt), reverse=True
+        )
+        chosen = -1
+        for depth, bucket in enumerate(order, start=1):
+            if loads[bucket] < caps[bucket]:
+                chosen = bucket
+                histogram[depth] = histogram.get(depth, 0) + 1
+                probe_total += depth
+                break
+        if chosen < 0:  # pragma: no cover - total capacity >= n
+            fallbacks += 1
+            spare = [caps[b] - loads[b] for b in range(buckets)]
+            best = max(spare)
+            chosen = min((b for b in order if spare[b] == best), key=order.index)
+            probe_total += buckets
+        loads[chosen] += 1
+        placements.append(chosen)
+
+    return {
+        "keys": n,
+        "buckets": buckets,
+        "weights": list(weights),
+        "overload": overload,
+        "capacities": caps,
+        "capacity": max(caps) if caps else 0,
+        "placements": placements,
+        "loads": loads,
+        "max_load": max(loads) if loads else 0,
+        "bound_holds": all(loads[b] <= caps[b] for b in range(buckets)),
+        "max_over_capacity": max(
+            (loads[b] / caps[b] for b in range(buckets) if caps[b]), default=0.0
+        ),
         "fallbacks": fallbacks,
         "probes": probe_total,
         "mean_probe": (probe_total / n) if n else 0.0,

@@ -8,13 +8,14 @@ Upstream: none (original library).
 
 | function | cost (measured below) | guarantee |
 | --- | --- | --- |
-| `jump_hash(int_key, buckets)` | **1,117 ns/lookup** | O(log n), O(1) memory |
-| `rendezvous(key, buckets)` | **13,802 ns/lookup** | stateless, uniform in expectation |
+| `jump_hash(int_key, buckets)` | **1,119 ns/lookup** | O(log n), O(1) memory |
+| `rendezvous(key, buckets)` | **13,740 ns/lookup** | stateless, uniform in expectation |
 | `weighted_rendezvous(key, weights)` | O(buckets) | keys follow weights |
-| `bounded_assign(keys, buckets, overload)` | **14,426 ns/key** | **max load <= ceil(overload * n / m)**, proven and re-audited |
-| `bounded_stream(keys, buckets, overload)` | **14,992 ns/key** | same cap holds for **every prefix**; no key ever moves |
-| `replicated_assign(keys, m, replicas, domains)` | **15,736 ns/key** (3 replicas) | replicas on distinct domains, cap reported even when missed |
-| `repair_failure(keys, placements, m, failed)` | **176 ms / 12,500 displaced keys** | moves only forced keys, refills to the new cap |
+| `bounded_assign(keys, buckets, overload)` | **14,465 ns/key** | **max load <= ceil(overload * n / m)**, proven and re-audited |
+| `bounded_stream(keys, buckets, overload)` | **15,077 ns/key** | same cap holds for **every prefix**; no key ever moves |
+| `replicated_assign(keys, m, replicas, domains)` | **15,722 ns/key** (3 replicas) | replicas on distinct domains, cap reported even when missed |
+| `repair_failure(keys, placements, m, failed)` | **177 ms / 12,500 displaced keys** | moves only forced keys, refills to the new cap |
+| `weighted_bounded_assign(keys, weights, overload)` | **5,975 ns/key** | per-bucket cap `ceil(overload*n*w_b/W)`, re-audited per bucket |
 
 `audit_placement()` and `audit_replicas()` recompute loads and separation from the placements alone, so a distribution or safety claim can be checked rather than believed.
 
@@ -65,16 +66,17 @@ For `n` keys, `m` buckets and `overload >= 1.0`, capacity is `ceil(overload * n 
 
 | scenario | result |
 | --- | --- |
-| `bounded_assign`, overload 1.0 | max load **12,500 = capacity**; **all 8 buckets exactly full**; 14,426 ns/key; mean probe **1.01** |
-| `bounded_assign`, overload 1.25 | max 12,634 <= 15,625; 14,357 ns/key; mean probe 1.00 |
-| `bounded_stream`, overload 1.0 | max 12,500 = capacity, all buckets exactly full, prefix bound holds; 14,992 ns/key; **mean probe 2.059** |
-| `bounded_stream`, overload 1.05 | max 12,648 <= 13,125, prefix bound holds; 14,870 ns/key; **mean probe 1.002** |
+| `bounded_assign`, overload 1.0 | max load **12,500 = capacity**; **all 8 buckets exactly full**; 14,465 ns/key; mean probe **1.01** |
+| `bounded_assign`, overload 1.25 | max 12,634 <= 15,625; 14,449 ns/key; mean probe 1.00 |
+| `bounded_stream`, overload 1.0 | max 12,500 = capacity, all buckets exactly full, prefix bound holds; 15,077 ns/key; **mean probe 2.059** |
+| `bounded_stream`, overload 1.05 | max 12,648 <= 13,125, prefix bound holds; 14,929 ns/key; **mean probe 1.002** |
+| `weighted_bounded_assign`, weights 1:1:4 | loads **16,666 / 16,667 / 66,667** vs caps 16,667 / 16,667 / 66,667; bound holds; 5,975 ns/key; mean probe 1.005 |
 | plain `rendezvous`, same keys | max/mean **1.0107** (no cap) |
 | hot-key skew: 200 distinct keys, 100k lookups | plain rendezvous max/mean **1.44x**; bounded max **12,500 = cap**, mean probe 1.15 |
 | 3 replicas, 4 zones, overload 1.0 | **36 / 300,000 placements over cap** (max 37,509 vs 37,500) — reported, not hidden |
 | 3 replicas, 4 zones, overload 1.10 | 0 violations, 0 domain collisions, max 37,774 (cap 41,250) |
-| 1 of 8 buckets fails, naive full rebalance | **60,729 keys move (60.7 %)** vs 12,500 forced; 1,282 ms |
-| 1 of 8 buckets fails, `repair_failure` | **12,500 keys move (12.5 % = the lower bound)**, 0 extra; max 14,286 = new cap; 176 ms |
+| 1 of 8 buckets fails, naive full rebalance | **60,729 keys move (60.7 %)** vs 12,500 forced; 1,286 ms |
+| 1 of 8 buckets fails, `repair_failure` | **12,500 keys move (12.5 % = the lower bound)**, 0 extra; max 14,286 = new cap; 177 ms |
 
 Three results here are deliberately unflattering and are part of the delivery: (1) domain-constrained replicas at overload 1.0 miss the cap by 36 placements out of 300,000, so the tight setting is not usable with zone constraints; overload 1.1 fixes it, and 1.25 buys nothing extra (identical placement — the same `placement_sha256` in `bench/bounded.json` — max 37,774). (2) A full rebalance after one failure moves 60,729 keys where 12,500 suffice — the targeted repair exists because the naive number was measured, and it reaches the lower bound while still filling the new capacity exactly (14,284–14,286 per survivor). (3) A saturated online ring is not free: `bounded_stream` at overload 1.0 costs **2.059 hashes per key**, and 5 % headroom (1.05) brings that to 1.002 for a max load 1.2 % above `n/m`. The knob is measured, not assumed.
 
@@ -84,18 +86,18 @@ Timings on this shared 4-vCPU box vary by several percent between runs; each row
 
 ```bash
 python -m pytest tests -q
-# 32 passed
+# 37 passed
 ```
 
-Covered: the original 11 tests for jump/rendezvous/weights/audit/CLI, plus 21 new ones, including prefix-bound and prefix-consistency of `bounded_stream` and its measured probe cost; bound at overload 1.0 and 1.25, empty batch, single bucket, more buckets than keys (forces distinct placement), determinism and salting, probe-histogram consistency, argument validation, independent audit detecting an injected violation, replica separation and capacity, the "violations are reported" invariant at tight capacity, impossible domain counts, minimal-movement repair for one and two failures, repair validation, and both new CLI subcommands.
+Covered: the original 11 tests for jump/rendezvous/weights/audit/CLI, plus 26 new ones, including prefix-bound and prefix-consistency of `bounded_stream` and its measured probe cost; bound at overload 1.0 and 1.25, empty batch, single bucket, more buckets than keys (forces distinct placement), determinism and salting, probe-histogram consistency, argument validation, independent audit detecting an injected violation, replica separation and capacity, the "violations are reported" invariant at tight capacity, impossible domain counts, minimal-movement repair for one and two failures, repair validation, weighted per-bucket capacities (1:1:4 and non-divisible weights), weighted argument validation and salting, and all four CLI subcommands.
 
 ## Limits
 
 - `bounded_assign` needs the whole batch (`capacity` depends on `n`); `bounded_stream` is the online variant. At overload 1.0 the online ring runs saturated and probes ~2 buckets per key — give it ~5 % headroom unless the cap is the only thing that matters.
-- `rendezvous` and both placement functions hash every bucket per key (BLAKE2b), so they are O(buckets); for thousands of buckets use `jump_hash`.
+- `rendezvous` and the placement functions hash every bucket per key (BLAKE2b), so they are O(buckets); for thousands of buckets use `jump_hash`.
 - Duplicate keys are treated as independent items; pass unique identifiers if you expect one placement per entity.
 - `replicated_assign` needs at least as many distinct domains as replicas; it raises instead of silently co-locating replicas.
-- The bounded path has no per-bucket weights (weighted rendezvous is separate).
+- Per-bucket weights exist only in `weighted_bounded_assign`; `bounded_assign`, `bounded_stream` and `replicated_assign` are unweighted, and weights are not yet combined with domain-aware replicas.
 
 ## Reproduce
 
@@ -104,6 +106,7 @@ python -m pytest tests -q
 python bench/bounded.py
 python -m shardkit bounded --keys 100000 --buckets 8 --overload 1.0
 python -m shardkit stream  --keys 100000 --buckets 8 --overload 1.05
+python -m shardkit weighted --keys 100000 --weights 1,1,4
 ```
 
 ## Environment
@@ -114,7 +117,7 @@ python -m shardkit stream  --keys 100000 --buckets 8 --overload 1.05
 
 ## 本轮创新
 
-把「容量上界的代价」本身做成测量对象，而不是只宣布一个上界。与 Google 2017 的 bounded-load 环不同，这里用 **rendezvous 偏好序 + 批量容量 + 最小负载回退**，给出可被 `audit_placement()` 独立重算的鸽笼证书；实测推翻了「有界负载必然明显增加探测」的默认假设——overload 1.0 时 100k 键的均探测深度是 **1.01**，因为自然 rendezvous 分布只把约 466 个键挤出首选桶。同时给出两条反面证据并交付修复：域约束副本在 overload 1.0 时差 36/300,000 个放置（需 1.1），以及故障后全量重平衡移动 60.7% 而强制下界只有 12.5%——`repair_failure` 恰好达到下界且仍把 7 个存活桶填到 14,284–14,286。再补一条同源的测量：把同一算法改成**流式插入**（容量按每个前缀重算、永不搬迁）后，c=1.0 时每个前缀都满足上界且最终 8 桶恰好满，但均探测 **2.059**；c=1.05 时均探测降到 **1.002**、最大负载只高出 n/m 的 1.2%。即「紧凑上界」与「在线不搬迁」不能同时免费拿到，这个取舍是本轮量出来的。全部数字在 `bench/bounded.json` 里，可复算。
+把「容量上界的代价」本身做成测量对象，而不是只宣布一个上界。与 Google 2017 的 bounded-load 环不同，这里用 **rendezvous 偏好序 + 批量容量 + 最小负载回退**，给出可被 `audit_placement()` 独立重算的鸽笼证书；实测推翻了「有界负载必然明显增加探测」的默认假设——overload 1.0 时 100k 键的均探测深度是 **1.01**，因为自然 rendezvous 分布只把约 466 个键挤出首选桶。同时给出两条反面证据并交付修复：域约束副本在 overload 1.0 时差 36/300,000 个放置（需 1.1），以及故障后全量重平衡移动 60.7% 而强制下界只有 12.5%——`repair_failure` 恰好达到下界且仍把 7 个存活桶填到 14,284–14,286。再补一条同源的测量：把同一算法改成**流式插入**（容量按每个前缀重算、永不搬迁）后，c=1.0 时每个前缀都满足上界且最终 8 桶恰好满，但均探测 **2.059**；c=1.05 时均探测降到 **1.002**、最大负载只高出 n/m 的 1.2%。即「紧凑上界」与「在线不搬迁」不能同时免费拿到，这个取舍是本轮量出来的。加权变体把同一上界推广到 `cap_b = ceil(overload·n·w_b/W)`：1:1:4 权重下实测负载 16,666 / 16,667 / 66,667，恰好贴住三桶各自的容量，均探测 1.005。全部数字在 `bench/bounded.json` 里，可复算。
 
 ## License
 

@@ -6,7 +6,12 @@ import argparse
 import json
 
 from .core import audit, jump_hash
-from .placement import bounded_assign, bounded_stream, replicated_assign
+from .placement import (
+    bounded_assign,
+    bounded_stream,
+    replicated_assign,
+    weighted_bounded_assign,
+)
 
 
 def _summary(report: dict, drop=("placements", "domains")) -> dict:
@@ -34,6 +39,12 @@ def main(argv: list[str] | None = None) -> int:
     st.add_argument("--overload", type=float, default=1.05)
     st.add_argument("--salt", default="")
 
+    w = sub.add_parser("weighted", help="per-bucket cap proportional to weights")
+    w.add_argument("--keys", type=int, default=100_000)
+    w.add_argument("--weights", default="1,1,4")
+    w.add_argument("--overload", type=float, default=1.0)
+    w.add_argument("--salt", default="")
+
     r = sub.add_parser("replicas", help="distinct-domain replica placement")
     r.add_argument("--keys", type=int, default=100_000)
     r.add_argument("--buckets", type=int, default=8)
@@ -53,6 +64,15 @@ def main(argv: list[str] | None = None) -> int:
             0 <= jump_hash(i, args.buckets) < args.buckets for i in range(1000)
         )
         print(json.dumps(report, indent=2))
+        return 0
+
+    if args.cmd == "weighted":
+        try:
+            weights = [float(part) for part in args.weights.split(",")]
+        except ValueError:
+            parser.error("--weights must be comma-separated numbers")
+        report = weighted_bounded_assign(keys, weights, args.overload, salt)
+        print(json.dumps(_summary(report), indent=2))
         return 0
 
     if args.cmd == "stream":

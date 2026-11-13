@@ -14,6 +14,7 @@ from shardkit import (
     rebalance,
     repair_failure,
     replicated_assign,
+    weighted_bounded_assign,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -247,6 +248,55 @@ def test_stream_empty_and_invalid():
         bounded_stream(["a"], 4, 0.99)
     with pytest.raises(ValueError):
         bounded_stream(["a"], 0)
+
+
+def test_weighted_bounded_capacities_and_ratio():
+    n = 12_000
+    report = weighted_bounded_assign([f"u{i}" for i in range(n)], [1, 1, 4], 1.0)
+    assert report["capacities"] == [2_000, 2_000, 8_000]
+    assert report["bound_holds"] is True
+    assert report["loads"] == [2_000, 2_000, 8_000]
+    assert 3.5 < report["loads"][2] / report["loads"][0] < 4.5
+    assert report["fallbacks"] == 0
+
+
+def test_weighted_bounded_nondivisible_and_empty():
+    report = weighted_bounded_assign(["a"] * 10, [1, 2, 3], 1.0)
+    assert report["capacities"] == [2, 4, 5]
+    assert report["bound_holds"] is True
+    assert sum(report["loads"]) == 10
+    empty = weighted_bounded_assign([], [1, 1, 4])
+    assert empty["placements"] == [] and empty["bound_holds"] is True
+
+
+def test_weighted_bounded_invalid():
+    for weights in ([], [1, 0], [1, -1], [1, float("nan")]):
+        with pytest.raises(ValueError):
+            weighted_bounded_assign(["a"], weights)
+    with pytest.raises(TypeError):
+        weighted_bounded_assign(["a"], [1, "x"])
+    with pytest.raises(ValueError):
+        weighted_bounded_assign(["a"], [1, 1], 0.99)
+
+
+def test_weighted_bounded_deterministic_and_salted():
+    keys = [f"u{i}" for i in range(2_000)]
+    first = weighted_bounded_assign(keys, [1, 2, 3])["placements"]
+    assert first == weighted_bounded_assign(keys, [1, 2, 3])["placements"]
+    assert first != weighted_bounded_assign(keys, [1, 2, 3], 1.0, b"salt")["placements"]
+
+
+def test_cli_weighted_smoke():
+    proc = subprocess.run(
+        [sys.executable, "-m", "shardkit", "weighted", "--keys", "12000", "--weights", "1,1,4"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    payload = json.loads(proc.stdout)
+    assert payload["capacities"] == [2000, 2000, 8000]
+    assert payload["bound_holds"] is True
 
 
 def test_cli_bounded_smoke():
