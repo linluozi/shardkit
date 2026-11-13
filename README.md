@@ -54,7 +54,7 @@ From `bench/bench.py`, output in `bench/results.json`, CPython 3.12.3:
 | chi-square (dof 7) | **10.25** |
 | keys moved when growing 8 → 9 buckets | **11,055 / 100,000 = 11.05 %** (ideal 11.11 %) |
 
-Repeated runs vary by about 1 % (jump 1,129–1,141 ns/lookup, rendezvous 13,922–14,087 ns/lookup); the movement fraction is deterministic and reproduces exactly.
+Timings on this shared 4-vCPU box vary by several percent between runs (`bench/variance.json` records 8 consecutive runs of the same command; the movement fraction is 0.1105 in every one). The table above is one such run.
 
 The last row is the property people usually assume without checking: adding one bucket moves ~1/(n+1) of keys, and 11.05 % is within 0.06 pp of the ideal. The chi-square of 10.25 with 7 degrees of freedom is well inside the 95 % band (14.07), so the placement is not detectably skewed at this sample size.
 

@@ -1,0 +1,35 @@
+{
+  "runs": 8,
+  "jump_ns": [
+    1137.0,
+    1139.8,
+    1131.5,
+    1130.8,
+    1124.7,
+    1125.4,
+    1130.4,
+    1130.6
+  ],
+  "rendezvous_ns": [
+    14084.2,
+    14071.3,
+    14000.0,
+    13995.0,
+    13986.8,
+    13960.0,
+    13998.8,
+    13959.5
+  ],
+  "moved_fraction": [
+    0.1105,
+    0.1105,
+    0.1105,
+    0.1105,
+    0.1105,
+    0.1105,
+    0.1105,
+    0.1105
+  ],
+  "command": "PYTHONPATH=. python bench/bench.py",
+  "note": "consecutive runs on a shared 4-vCPU box; same deterministic keys"
+}
