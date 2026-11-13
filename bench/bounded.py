@@ -7,6 +7,7 @@ assignment is reproducible bit for bit.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import platform
 import statistics
@@ -16,6 +17,7 @@ from shardkit import (
     audit_placement,
     audit_replicas,
     bounded_assign,
+    bounded_stream,
     jump_hash,
     rendezvous,
     rebalance,
@@ -90,6 +92,21 @@ def main() -> None:
         "mean_probe": round(report["mean_probe"], 3),
     }
 
+    for label, overload in (("c100", 1.0), ("c105", 1.05)):
+        samples, report = timed(
+            lambda overload=overload: bounded_stream(KEYS, BUCKETS, overload)
+        )
+        out[f"stream_{label}"] = {
+            **summary(samples, N),
+            "capacity": report["capacity"],
+            "max_load": report["max_load"],
+            "bound_holds": report["bound_holds"],
+            "prefix_bound_holds": report["prefix_bound_holds"],
+            "all_buckets_exactly_full": report["loads"] == [report["capacity"]] * BUCKETS,
+            "mean_probe": round(report["mean_probe"], 3),
+            "histogram": report["histogram"],
+        }
+
     # --- cost floor: the plain primitives on the same key space ------------
     samples, _ = timed(lambda: [jump_hash(i, BUCKETS) for i in range(N)])
     out["jump_hash"] = summary(samples, N)
@@ -115,6 +132,7 @@ def main() -> None:
     # --- rack-aware replicas: how much overload does the domain rule need? --
     domains = [f"zone-{b % 4}" for b in range(BUCKETS)]
     replication: dict = {"replicas": 3, "domains": 4, "overloads": {}}
+    placement_hashes: dict = {}
     for overload in (1.0, 1.1, 1.25):
         samples, rep = timed(
             lambda overload=overload: replicated_assign(
@@ -123,6 +141,9 @@ def main() -> None:
             repeats=2,
         )
         audit = audit_replicas(rep["placements"], BUCKETS, domains)
+        placement_hashes[str(overload)] = hashlib.sha256(
+            json.dumps(rep["placements"], separators=(",", ":")).encode()
+        ).hexdigest()
         replication["overloads"][str(overload)] = {
             "median_seconds": round(statistics.median(samples), 4),
             "ns_per_key": round(statistics.median(samples) / N * 1e9, 1),
@@ -134,6 +155,13 @@ def main() -> None:
             "duplicate_bucket": audit["duplicate_bucket"],
             "duplicate_domain": audit["duplicate_domain"],
         }
+    replication["placement_sha256"] = placement_hashes
+    replication["identical_overload_pairs"] = [
+        [a, b]
+        for i, a in enumerate(placement_hashes)
+        for b in list(placement_hashes)[i + 1 :]
+        if placement_hashes[a] == placement_hashes[b]
+    ]
     out["replication"] = replication
 
     # --- one bucket dies: full rebalance vs targeted repair -----------------

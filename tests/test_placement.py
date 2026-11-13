@@ -10,6 +10,7 @@ from shardkit import (
     audit_placement,
     audit_replicas,
     bounded_assign,
+    bounded_stream,
     rebalance,
     repair_failure,
     replicated_assign,
@@ -208,6 +209,44 @@ def test_repair_rejects_bad_input():
         repair_failure(["a"], [0, 1], 2, [0])
     with pytest.raises(ValueError):
         repair_failure(["a"], [0], 2, [9])
+
+
+def test_stream_prefix_bound_and_prefix_consistency():
+    n, m = 3_000, 7
+    keys = [f"u{i}" for i in range(n)]
+    report = bounded_stream(keys, m, 1.0)
+    assert report["prefix_bound_holds"] is True
+    assert report["bound_holds"] is True
+    assert report["moved"] == 0
+    assert sum(report["loads"]) == n
+    assert report["max_load"] <= report["capacity"]
+    k = 1_500
+    prefix = bounded_stream(keys[:k], m, 1.0)
+    assert report["placements"][:k] == prefix["placements"]
+
+
+def test_stream_probe_cost_is_measurable():
+    keys = [f"u{i}" for i in range(5_000)]
+    tight = bounded_stream(keys, 8, 1.0)
+    relaxed = bounded_stream(keys, 8, 1.05)
+    # Deterministic probe counts, not timings: saturated ring costs > 1.5
+    # hashes per key, 5 % headroom brings it back to ~1.0.
+    assert tight["mean_probe"] > 1.5
+    assert relaxed["mean_probe"] < 1.1
+    assert tight["max_load"] <= tight["capacity"]
+    assert relaxed["max_load"] <= relaxed["capacity"]
+    assert tight["prefix_bound_holds"] and relaxed["prefix_bound_holds"]
+
+
+def test_stream_empty_and_invalid():
+    empty = bounded_stream([], 4)
+    assert empty["placements"] == []
+    assert empty["max_load"] == 0
+    assert empty["prefix_bound_holds"] is True
+    with pytest.raises(ValueError):
+        bounded_stream(["a"], 4, 0.99)
+    with pytest.raises(ValueError):
+        bounded_stream(["a"], 0)
 
 
 def test_cli_bounded_smoke():

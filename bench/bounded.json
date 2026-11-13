@@ -7,14 +7,14 @@
   "seed": "none (keys are user:0 .. user:99999)",
   "bounded_c100": {
     "seconds": [
-      1.4452,
-      1.4424,
-      1.4378
+      1.4506,
+      1.4347,
+      1.4426
     ],
-    "median_seconds": 1.4424,
-    "ns_per_key": 14423.8,
-    "min": 1.4378,
-    "max": 1.4452,
+    "median_seconds": 1.4426,
+    "ns_per_key": 14425.6,
+    "min": 1.4347,
+    "max": 1.4506,
     "capacity": 12500,
     "max_load": 12500,
     "bound_holds": true,
@@ -45,14 +45,14 @@
   },
   "bounded_c125": {
     "seconds": [
-      1.4308,
-      1.4281,
-      1.4326
+      1.4357,
+      1.4382,
+      1.4212
     ],
-    "median_seconds": 1.4308,
-    "ns_per_key": 14307.9,
-    "min": 1.4281,
-    "max": 1.4326,
+    "median_seconds": 1.4357,
+    "ns_per_key": 14357.1,
+    "min": 1.4212,
+    "max": 1.4382,
     "capacity": 15625,
     "max_load": 12634,
     "bound_holds": true,
@@ -68,27 +68,79 @@
     ],
     "mean_probe": 1.0
   },
+  "stream_c100": {
+    "seconds": [
+      1.4992,
+      1.4983,
+      1.501
+    ],
+    "median_seconds": 1.4992,
+    "ns_per_key": 14991.6,
+    "min": 1.4983,
+    "max": 1.501,
+    "capacity": 12500,
+    "max_load": 12500,
+    "bound_holds": true,
+    "prefix_bound_holds": true,
+    "all_buckets_exactly_full": true,
+    "mean_probe": 2.059,
+    "histogram": {
+      "1": 56254,
+      "2": 18689,
+      "3": 9469,
+      "4": 5561,
+      "5": 3734,
+      "6": 2672,
+      "7": 2067,
+      "8": 1554
+    }
+  },
+  "stream_c105": {
+    "seconds": [
+      1.5027,
+      1.487,
+      1.4848
+    ],
+    "median_seconds": 1.487,
+    "ns_per_key": 14870.0,
+    "min": 1.4848,
+    "max": 1.5027,
+    "capacity": 13125,
+    "max_load": 12648,
+    "bound_holds": true,
+    "prefix_bound_holds": true,
+    "all_buckets_exactly_full": false,
+    "mean_probe": 1.002,
+    "histogram": {
+      "1": 99852,
+      "2": 114,
+      "3": 28,
+      "4": 3,
+      "5": 1,
+      "6": 2
+    }
+  },
   "jump_hash": {
     "seconds": [
-      0.1136,
-      0.1133,
-      0.1131
+      0.1117,
+      0.1118,
+      0.1114
     ],
-    "median_seconds": 0.1133,
-    "ns_per_key": 1133.0,
-    "min": 0.1131,
-    "max": 0.1136
+    "median_seconds": 0.1117,
+    "ns_per_key": 1117.4,
+    "min": 0.1114,
+    "max": 0.1118
   },
   "rendezvous": {
     "seconds": [
-      1.38,
-      1.3907,
-      1.3818
+      1.3779,
+      1.3802,
+      1.3889
     ],
-    "median_seconds": 1.3818,
-    "ns_per_key": 13817.8,
-    "min": 1.38,
-    "max": 1.3907
+    "median_seconds": 1.3802,
+    "ns_per_key": 13801.9,
+    "min": 1.3779,
+    "max": 1.3889
   },
   "skew_200_hot_keys": {
     "plain_max_over_mean": 1.44,
@@ -112,8 +164,8 @@
     "domains": 4,
     "overloads": {
       "1.0": {
-        "median_seconds": 1.5627,
-        "ns_per_key": 15627.3,
+        "median_seconds": 1.5608,
+        "ns_per_key": 15607.8,
         "capacity": 37500,
         "max_load": 37509,
         "bound_holds": false,
@@ -123,8 +175,8 @@
         "duplicate_domain": 0
       },
       "1.1": {
-        "median_seconds": 1.5687,
-        "ns_per_key": 15686.9,
+        "median_seconds": 1.5736,
+        "ns_per_key": 15736.2,
         "capacity": 41250,
         "max_load": 37774,
         "bound_holds": true,
@@ -134,8 +186,8 @@
         "duplicate_domain": 0
       },
       "1.25": {
-        "median_seconds": 1.5655,
-        "ns_per_key": 15655.3,
+        "median_seconds": 1.5673,
+        "ns_per_key": 15672.5,
         "capacity": 46875,
         "max_load": 37774,
         "bound_holds": true,
@@ -144,7 +196,18 @@
         "duplicate_bucket": 0,
         "duplicate_domain": 0
       }
-    }
+    },
+    "placement_sha256": {
+      "1.0": "a7bec09be6ed3e879ea763acc5adb807530b5d218f7489b9a4f44a9f12724d3f",
+      "1.1": "38eb8c73f1ff2424beb4b327b00b60336ecad5a82f4ee43c866c47f8a757ba8e",
+      "1.25": "38eb8c73f1ff2424beb4b327b00b60336ecad5a82f4ee43c866c47f8a757ba8e"
+    },
+    "identical_overload_pairs": [
+      [
+        "1.1",
+        "1.25"
+      ]
+    ]
   },
   "failure_of_bucket_3": {
     "keys": 100000,
@@ -162,7 +225,7 @@
       12500
     ],
     "naive_rebalance": {
-      "median_seconds": 1.283,
+      "median_seconds": 1.2822,
       "moved": 60729,
       "moved_fraction": 0.60729,
       "extra": 48229,
@@ -171,7 +234,7 @@
       "bound_holds_after": true
     },
     "targeted_repair": {
-      "median_seconds": 0.1725,
+      "median_seconds": 0.1757,
       "moved": 12500,
       "moved_fraction": 0.125,
       "extra": 0,

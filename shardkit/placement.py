@@ -25,6 +25,7 @@ from .core import score
 
 __all__ = [
     "bounded_assign",
+    "bounded_stream",
     "replicated_assign",
     "rebalance",
     "repair_failure",
@@ -108,6 +109,71 @@ def bounded_assign(
         "loads": loads,
         "max_load": max(loads) if loads else 0,
         "bound_holds": all(load <= capacity for load in loads),
+        "fallbacks": fallbacks,
+        "probes": probe_total,
+        "mean_probe": (probe_total / n) if n else 0.0,
+        "histogram": {int(k): v for k, v in sorted(histogram.items())},
+    }
+
+
+def bounded_stream(
+    keys: list[object],
+    buckets: int,
+    overload: float = 1.0,
+    salt: bytes = b"",
+) -> dict[str, object]:
+    """Online variant: the cap holds for **every prefix**, and no key ever moves.
+
+    Capacity is recomputed as ``ceil(overload * k / m)`` before the k-th
+    insertion.  It is non-decreasing in ``k``, so a slot always exists and the
+    least-loaded fallback (if ever needed) cannot exceed the current cap.  The
+    price is probe depth: at ``overload=1.0`` the ring runs saturated, so many
+    keys find their first rendezvous choice full.  The returned report includes
+    ``mean_probe`` and ``prefix_bound_holds`` so that price is measured, not
+    assumed.
+    """
+    _check_buckets(buckets)
+    _check_overload(overload)
+    keys = list(keys)
+    loads = [0] * buckets
+    placements: list[int] = []
+    histogram: dict[int, int] = {}
+    probe_total = 0
+    fallbacks = 0
+    prefix_holds = True
+
+    for index, key in enumerate(keys, start=1):
+        capacity = _capacity(index, buckets, overload)
+        order = _preference(key, buckets, salt)
+        chosen = -1
+        for depth, bucket in enumerate(order, start=1):
+            if loads[bucket] < capacity:
+                chosen = bucket
+                histogram[depth] = histogram.get(depth, 0) + 1
+                probe_total += depth
+                break
+        if chosen < 0:  # pragma: no cover - monotone cap guarantees a slot
+            fallbacks += 1
+            chosen = min(order, key=lambda b: loads[b])
+            probe_total += buckets
+        loads[chosen] += 1
+        if max(loads) > capacity:
+            prefix_holds = False
+        placements.append(chosen)
+
+    n = len(keys)
+    capacity = _capacity(n, buckets, overload)
+    return {
+        "keys": n,
+        "buckets": buckets,
+        "overload": overload,
+        "capacity": capacity,
+        "placements": placements,
+        "loads": loads,
+        "max_load": max(loads) if loads else 0,
+        "bound_holds": all(load <= capacity for load in loads),
+        "prefix_bound_holds": prefix_holds,
+        "moved": 0,
         "fallbacks": fallbacks,
         "probes": probe_total,
         "mean_probe": (probe_total / n) if n else 0.0,

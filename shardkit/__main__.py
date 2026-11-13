@@ -6,7 +6,7 @@ import argparse
 import json
 
 from .core import audit, jump_hash
-from .placement import bounded_assign, replicated_assign
+from .placement import bounded_assign, bounded_stream, replicated_assign
 
 
 def _summary(report: dict, drop=("placements", "domains")) -> dict:
@@ -28,6 +28,12 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--overload", type=float, default=1.0)
     b.add_argument("--salt", default="")
 
+    st = sub.add_parser("stream", help="online bounded assignment (prefix cap)")
+    st.add_argument("--keys", type=int, default=100_000)
+    st.add_argument("--buckets", type=int, default=8)
+    st.add_argument("--overload", type=float, default=1.05)
+    st.add_argument("--salt", default="")
+
     r = sub.add_parser("replicas", help="distinct-domain replica placement")
     r.add_argument("--keys", type=int, default=100_000)
     r.add_argument("--buckets", type=int, default=8)
@@ -47,6 +53,11 @@ def main(argv: list[str] | None = None) -> int:
             0 <= jump_hash(i, args.buckets) < args.buckets for i in range(1000)
         )
         print(json.dumps(report, indent=2))
+        return 0
+
+    if args.cmd == "stream":
+        report = bounded_stream(keys, args.buckets, args.overload, salt)
+        print(json.dumps(_summary(report), indent=2))
         return 0
 
     if args.cmd == "bounded":
