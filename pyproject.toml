@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shardkit"
+version = "0.1.0"
+description = "Jump consistent hash and weighted rendezvous hashing with auditable placement"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [{name = "linluozi"}]
+
+[tool.setuptools]
+packages = ["shardkit"]

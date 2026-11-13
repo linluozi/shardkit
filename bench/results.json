@@ -1,0 +1,26 @@
+{
+  "keys": 200000,
+  "buckets": 8,
+  "jump_hash": {
+    "seconds": 0.2258,
+    "ns_per_lookup": 1129.0
+  },
+  "rendezvous_blake2b": {
+    "seconds": 2.7844,
+    "ns_per_lookup": 13922.2
+  },
+  "balance": {
+    "min": 24813,
+    "max": 25346,
+    "mean": 25000.0,
+    "max_over_mean": 1.01384,
+    "chi2": 10.2476,
+    "dof": 7
+  },
+  "growth_8_to_9": {
+    "keys": 100000,
+    "moved": 11055,
+    "moved_fraction": 0.1105,
+    "ideal": 0.1111
+  }
+}
