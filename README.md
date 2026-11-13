@@ -78,7 +78,7 @@ For `n` keys, `m` buckets and `overload >= 1.0`, capacity is `ceil(overload * n 
 
 Three results here are deliberately unflattering and are part of the delivery: (1) domain-constrained replicas at overload 1.0 miss the cap by 36 placements out of 300,000, so the tight setting is not usable with zone constraints; overload 1.1 fixes it, and 1.25 buys nothing extra (identical placement — the same `placement_sha256` in `bench/bounded.json` — max 37,774). (2) A full rebalance after one failure moves 60,729 keys where 12,500 suffice — the targeted repair exists because the naive number was measured, and it reaches the lower bound while still filling the new capacity exactly (14,284–14,286 per survivor). (3) A saturated online ring is not free: `bounded_stream` at overload 1.0 costs **2.059 hashes per key**, and 5 % headroom (1.05) brings that to 1.002 for a max load 1.2 % above `n/m`. The knob is measured, not assumed.
 
-Timings on this shared 4-vCPU box vary by several percent between runs; each row is the median recorded in `bench/bounded.json`, which also stores every sample. The movement counts and loads are exact and reproducible, not statistical.
+Timings on this shared 4-vCPU box vary by several percent between runs; each row is the median recorded in `bench/bounded.json`, which also stores the per-run `seconds` array for every timed assignment config (the replication and failure sections store medians only). The movement counts and loads are exact and reproducible, not statistical.
 
 ## Tests
 
